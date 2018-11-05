@@ -449,9 +449,23 @@ def RizzoApply(sigfile=None):
     print "Signatures applied in %.2f seconds" % (end-start)
 
 
-
-
 class RizzoPlugin(idaapi.plugin_t):
+    class MenuHandler(idaapi.action_handler_t):
+        def __init__(self, type, plugin):
+            idaapi.action_handler_t.__init__(self)
+            self.type = type
+            self.plugin = plugin
+
+        def activate(self, ctx):
+            if self.type == 1:
+                self.plugin.rizzo_load(None)
+            elif self.type == 2:
+                self.plugin.rizzo_produce(None)
+            return 1
+
+        def update(self, ctx):
+            return idaapi.AST_ENABLE_FOR_IDB
+
     flags = 0
     comment = "Function signature"
     help = ""
@@ -459,15 +473,37 @@ class RizzoPlugin(idaapi.plugin_t):
     wanted_hotkey = ""
 
     NAME = "rizzo.py"
+    ACTION_LOAD_NAME = "Rizzo:Load"
+    ACTION_PRODUCE_NAME = "Rizzo:Produce"
 
     def init(self):
-        self.menu_context_load = idaapi.add_menu_item("File/Load file/", "Rizzo signature file...", "", 0, self.rizzo_load, (None,))
-        self.menu_context_produce = idaapi.add_menu_item("File/Produce file/", "Rizzo signature file...", "", 0, self.rizzo_produce, (True,))
+        if idaapi.register_action(idaapi.action_desc_t(
+            self.ACTION_LOAD_NAME,
+            'Rizzo signature file...',
+            self.MenuHandler(1, self)
+        )):
+            print "Action", self.ACTION_LOAD_NAME, " registerd"
+        if idaapi.attach_action_to_menu("File/Load file/", self.ACTION_LOAD_NAME, idaapi.SETMENU_APP):
+            print "action ", self.ACTION_LOAD_NAME, " attach succ!"
+
+        if idaapi.register_action(idaapi.action_desc_t(
+                self.ACTION_PRODUCE_NAME,
+                'Rizzo signature file...',
+                self.MenuHandler(2, self)
+        )):
+            print "Action", self.ACTION_PRODUCE_NAME, " registerd"
+        if idaapi.attach_action_to_menu("File/Produce file/", self.ACTION_PRODUCE_NAME, idaapi.SETMENU_APP):
+            print "action ", self.ACTION_PRODUCE_NAME, " attach succ!"
+
+        # self.menu_context_load = idaapi.add_menu_item("File/Load file/", "Rizzo signature file...", "", 0, self.rizzo_load, (None,))
+        # self.menu_context_produce = idaapi.add_menu_item("File/Produce file/", "Rizzo signature file...", "", 0, self.rizzo_produce, (True,))
         return idaapi.PLUGIN_KEEP
 
     def term(self):
-        idaapi.del_menu_item(self.menu_context_load)
-        idaapi.del_menu_item(self.menu_context_produce)
+        idaapi.unregister_action(self.ACTION_LOAD_NAME)
+        idaapi.unregister_action(self.ACTION_PRODUCE_NAME)
+        # idaapi.del_menu_item(self.menu_context_load)
+        # idaapi.del_menu_item(self.menu_context_produce)
         return None
 
     def run(self, arg):
